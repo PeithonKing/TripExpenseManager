@@ -1,5 +1,7 @@
 # Trip Expense Manager
 
+**UPDATE:** Besides the python script, I have now added a web app for the same purpose. You can directly access it [here](https://peithonking.github.io/TripExpenseManager/) without any setup.
+
 Managing trip expenses can be a daunting task, especially when multiple people are involved. Keeping track of who spent what and how much each person owes or is owed can lead to confusion and disputes. The Trip Expense Manager is designed to simplify this process by providing an easy-to-use solution for calculating and minimizing settlement payments.
 
 Given a properly formatted CSV file containing expense details, the Trip Expense Manager script calculates the total amount each person owes or is owed. It then applies a settlement payment minimization algorithm to reduce the number of payments required to settle all expenses. This results in a convenient and efficient way to manage trip expenses, eliminating the need for multiple transactions and ensuring that everyone gets paid back what they are owed.

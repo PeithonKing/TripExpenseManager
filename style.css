@@ -1,0 +1,33 @@
+#expenseTable {
+    width: 100%;
+}
+
+#expenseTable th, #expenseTable td {
+    padding: 10px;
+    text-align: left;
+    border-collapse: collapse;
+}
+
+#expenseTable th {
+    background-color: #f0f0f0;
+}
+
+#expenseTable input[type="text"], #expenseTable input[type="number"] {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 5px;
+    font-size: 16px;
+}
+
+#expenseTable select {
+    width: 100%;
+    padding: 5px;
+    font-size: 16px;
+}
+
+#payments, #payment_sumary, #individual_costs {
+    margin: 5px;
+    border: 1px solid #ccc;
+    padding: 10px;
+    border-radius: 5px;
+}

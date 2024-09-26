@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trip Expense Manager</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <nav class="navbar navbar-dark bg-dark">
+        <div class="container-fluid d-flex justify-content-center">
+            <span class="navbar-brand mb-0 h1">Trip Expense Manager</span>
+        </div>
+    </nav>
+
+
+    <div class="container mt-5">
+
+
+
+        <p class="d-inline-flex gap-1">
+            <a class="btn btn-primary" data-bs-toggle="collapse" href="#howToUseCollapse" role="button"
+                aria-expanded="false" aria-controls="howToUseCollapse">
+                How to Use
+            </a>
+        </p>
+        <div class="collapse" id="howToUseCollapse">
+            <div class="card card-body">
+                <h5>Step 1: Add People Involved</h5>
+                <p>Click on the "Add Person" button to add all the people involved in this project. You can add more
+                    people later too.</p>
+
+                <h5>Step 2: Add Expense Rows</h5>
+                <p>Click on the "Add Row" button to add rows for each expense.</p>
+
+                <h5>Filling the Rows:</h5>
+                <ul>
+                    <li>The first three columns are self-explanatory:
+                        <ul>
+                            <li>Expense Name: Enter the name of the expense</li>
+                            <li>Amount Spent: Enter the total amount spent on this expense</li>
+                            <li>Spent By: Choose one person from the list of people you added earlier to mark who spent
+                                this amount</li>
+                        </ul>
+                    </li>
+                    <li>The rest of the columns are people-specific columns, representing each person's share of the expense.</li>
+                </ul>
+
+                <p>You can fill the  columns in two ways:</p>
+                <ol>
+                    <li><strong>Ratio Method:</strong> Enter a ratio value (e.g., 1, 2, 3) for each person. The system
+                        will automatically calculate the share based on this ratio. (if you want equal division, put 1
+                        against everyone's names, if some person shouldn't share some expense, you can put 0 against
+                        their names)</li>
+                    <li><strong>Exact Amount Method:</strong> Enter the exact amount to be paid by each person. Make
+                        sure these amounts add up to the total "Amount Spent" value.</li>
+                </ol>
+
+                <p>Note: Behind the scenes, the system multiplies all share values by a factor that ensures they add up
+                    to the total "Amount Spent" value.</p>
+
+                <h5>Step 3: Click on Calculate</h5>
+
+
+
+            </div>
+        </div>
+
+        <br>
+
+
+        <table id="expenseTable" border="1">
+            <thead>
+                <tr>
+                    <th>Expense Name</th>
+                    <th>Amount Spent</th>
+                    <th>Spent By</th>
+                </tr>
+            </thead>
+            <tbody id="expenseBody">
+
+                <!-- <tr>
+                    <td><input type="text" value="Nagordola" placeholder="Expense Name"></td>
+                    <td><input type="number" value="150" placeholder="Amount Spent"></td>
+                    <td>
+                        <select>
+                            <option value="">Select Person</option>
+                            <option value="Aritra">Aritra</option>
+                            <option value="Jabed">Jabed</option>
+                            <option value="Prayas">Prayas</option>
+                        </select>
+                    </td>
+                    <td><input type="number" value="1"></td>
+                    <td><input type="number" value="1"></td>
+                    <td><input type="number" value="1"></td>
+                </tr> 
+    
+                ... more simillar rows
+    
+                -->
+
+            </tbody>
+        </table>
+
+        <!-- <button class="btn btn-danger m-3" onclick="localStorage.clear(); location.reload()">Reset Data</button> -->
+        <button class="btn btn-danger m-3" onclick="localStorage.clear(); location.reload()"
+        title="Delete saved data and start anew. Note: Data is automatically saved when 'Calculate' button is clicked.">
+        Reset Data
+      </button>
+      
+        <button class="btn btn-primary m-3" id="addRow">Add Row</button>
+        <button class="btn btn-success m-3" id="addPerson">Add Person</button>
+        <button class="btn btn-info m-3" id="done">Calculate</button>
+
+
+        <div class="row">
+            <div class="col-md-5" id="payments" style="display: none;"> </div>
+            <div class="col-md-6" id="individual_costs" style="display: none;"> </div>
+            <div class="col-md-5" id="payment_sumary" style="display: none;"> </div>
+        </div>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+        crossorigin="anonymous"></script>
+    <script src="scripts.js"></script>
+
+</body>
+
+</html>
