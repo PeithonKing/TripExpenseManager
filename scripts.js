@@ -226,11 +226,6 @@ function settleExpenses(expenses, people) {
         alert(message);
         throw new Error(message);
     }
-
-    
-    
-    
-    
     
     const payment_sumary = document.getElementById('payment_sumary');
     payment_sumary.innerHTML = '';
