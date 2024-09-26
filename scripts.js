@@ -234,7 +234,7 @@ function settleExpenses(expenses, people) {
     
     const payment_sumary = document.getElementById('payment_sumary');
     payment_sumary.innerHTML = '';
-    payment_sumary.style.display = 'block';
+    // payment_sumary.style.display = 'block';
     payment_sumary.innerHTML = '<h2>Payment Summary</h2>';
 
     const ul = document.createElement('ul');
@@ -263,7 +263,7 @@ function settleExpenses(expenses, people) {
     }
     const output_field = document.getElementById('payments');
     output_field.innerHTML = '';
-    // output_field.style.display = 'block';
+    output_field.style.display = 'block';
     output_field.innerHTML += '<h2>Payments to be made</h2>';
     output_field.innerHTML += `<p>All the necessary payments can be made with ${payments.length} transactions.</p>`;
     const ul1 = document.createElement('ul');
