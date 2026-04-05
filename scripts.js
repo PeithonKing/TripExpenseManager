@@ -2,7 +2,6 @@ const THEME_STORAGE_KEY = "themeMode";
 const THEME_MODES = ["system", "light", "dark"];
 const SHARE_PEOPLE_PARAM = "p";
 const SHARE_DATA_PARAM = "d";
-const NAME_PATTERN = /^[A-Za-z0-9]+$/;
 const PEOPLE_DELIMITER = "~";
 const ROW_DELIMITER = "~";
 const FIELD_DELIMITER = "_";
@@ -59,16 +58,50 @@ function saveData(name, data) {
     }
 }
 
-function isValidAlphaNumericName(value) {
-    return NAME_PATTERN.test(String(value || "").trim());
+function encodeToken(value) {
+    // Force delimiter characters to be escaped too.
+    return encodeURIComponent(String(value ?? ""))
+        .replace(/~/g, "%7E")
+        .replace(/_/g, "%5F");
+}
+
+function decodeToken(value) {
+    return decodeURIComponent(String(value ?? ""));
+}
+
+function isValidName(value) {
+    return String(value || "").trim().length > 0;
 }
 
 function validatePeopleList(peopleList) {
-    return peopleList.every(isValidAlphaNumericName);
+    return peopleList.every(isValidName);
 }
 
 function validateExpenseNames(expenses) {
-    return expenses.every(row => isValidAlphaNumericName(row.expenseName));
+    return expenses.every(row => isValidName(row.expenseName));
+}
+
+function applyExpenseNameValidationState(inputElement) {
+    const isValid = isValidName(inputElement.value);
+    inputElement.classList.toggle("input-invalid", !isValid);
+    inputElement.setAttribute("aria-invalid", String(!isValid));
+    if (!isValid) {
+        inputElement.setCustomValidity("Expense name cannot be empty.");
+    } else {
+        inputElement.setCustomValidity("");
+    }
+    return isValid;
+}
+
+function updateActionButtonsState() {
+    const expenseNameInputs = document.querySelectorAll('#expenseBody tr td:first-child input[type="text"]');
+    const hasInvalidExpenseNames = Array.from(expenseNameInputs).some(input => !isValidName(input.value));
+    const canProceed = people.length > 0 && !hasInvalidExpenseNames;
+
+    const doneButton = document.getElementById('done');
+    const shareButton = document.getElementById('shareState');
+    if (doneButton) doneButton.disabled = !canProceed;
+    if (shareButton) shareButton.disabled = !canProceed;
 }
 
 function parseStateFromUrl() {
@@ -83,7 +116,7 @@ function parseStateFromUrl() {
 
         const people = peopleParam
             .split(PEOPLE_DELIMITER)
-            .map(name => String(name || "").trim())
+            .map(name => decodeToken(name).trim())
             .filter(Boolean);
 
         if (!validatePeopleList(people)) {
@@ -97,12 +130,12 @@ function parseStateFromUrl() {
                 throw new Error("Malformed row in d parameter.");
             }
 
-            const expenseName = parts[0] || "";
-            const amountSpent = Number(parts[1]) || 0;
-            const spenderIndex = Number(parts[2]);
+            const expenseName = decodeToken(parts[0] || "");
+            const amountSpent = Number(decodeToken(parts[1])) || 0;
+            const spenderIndex = Number(decodeToken(parts[2]));
             const spentBy = people[spenderIndex] || "";
 
-            const contributions = parts.slice(3).map(token => Number(token) || 0);
+            const contributions = parts.slice(3).map(token => Number(decodeToken(token)) || 0);
             const normalizedContributions = contributions.length < people.length
                 ? contributions.concat(new Array(people.length - contributions.length).fill(0))
                 : contributions.slice(0, people.length);
@@ -128,7 +161,7 @@ function parseStateFromUrl() {
 }
 
 function serializeStateForUrl(state) {
-    const people = state.people.map(name => String(name || "")).join(PEOPLE_DELIMITER);
+    const people = state.people.map(name => encodeToken(name)).join(PEOPLE_DELIMITER);
 
     const rows = state.expenses.map(row => {
         const spenderIndex = Math.max(0, state.people.indexOf(row.spentBy));
@@ -137,10 +170,10 @@ function serializeStateForUrl(state) {
             .concat(new Array(Math.max(0, state.people.length - (row.contributions || []).length)).fill(0));
 
         const tokens = [
-            String(row.expenseName || ""),
-            String(Number(row.amountSpent) || 0),
-            String(spenderIndex),
-            ...contributions.map(value => String(Number(value) || 0))
+            encodeToken(row.expenseName || ""),
+            encodeToken(Number(row.amountSpent) || 0),
+            encodeToken(spenderIndex),
+            ...contributions.map(value => encodeToken(Number(value) || 0))
         ];
 
         return tokens.join(FIELD_DELIMITER);
@@ -162,7 +195,7 @@ function loadInitialState() {
     };
 
     if (!validatePeopleList(storedState.people) || !validateExpenseNames(storedState.expenses)) {
-        alert("Saved data contains invalid names. Only A-Z, a-z, 0-9 are allowed. Clearing saved state.");
+        alert("Saved data contains invalid empty names. Clearing saved state.");
         localStorage.removeItem("people");
         localStorage.removeItem("expenses");
         return { people: [], expenses: [] };
@@ -202,10 +235,10 @@ function collectTableStateFromDOM() {
 function createShareableUrl() {
     const state = collectTableStateFromDOM();
     if (!validatePeopleList(state.people)) {
-        throw new Error("Invalid person name. Use only letters and numbers.");
+        throw new Error("Invalid person name. Name cannot be empty.");
     }
     if (!validateExpenseNames(state.expenses)) {
-        throw new Error("Invalid expense name. Use only letters and numbers.");
+        throw new Error("Invalid expense name. Name cannot be empty.");
     }
 
     const serialized = serializeStateForUrl(state);
@@ -292,6 +325,13 @@ function addRow(rowData = null) {
         </td>
     `;
 
+    const expenseNameInput = newRow.querySelector('td:nth-child(1) input');
+    expenseNameInput.addEventListener('input', () => {
+        applyExpenseNameValidationState(expenseNameInput);
+        updateActionButtonsState();
+    });
+    applyExpenseNameValidationState(expenseNameInput);
+
     // Add a column for each person for their contribution
     // let contributions;
     // if (rowData) {
@@ -312,15 +352,19 @@ function addRow(rowData = null) {
         const deleteButton = document.createElement('button');
         // add class="btn btn-danger"  to delete button
         deleteButton.classList.add("btn", "btn-danger", "rowdelete");
-        deleteButton.textContent = 'Delete';
+        deleteButton.innerHTML = '<i class="bi bi-trash3"></i>';
+        deleteButton.setAttribute("aria-label", "Delete row");
+        deleteButton.setAttribute("title", "Delete row");
         deleteButton.onclick = function () {
             tableBody.removeChild(newRow);  // Removes the current row
+            updateActionButtonsState();
         };
         deleteCell.appendChild(deleteButton);
         newRow.appendChild(deleteCell);
     }
 
     tableBody.appendChild(newRow);
+    updateActionButtonsState();
 }
 
 
@@ -359,7 +403,7 @@ function addPerson(personName) {
 function gatherData() {
     const currentState = collectTableStateFromDOM();
     if (!validateExpenseNames(currentState.expenses)) {
-        alert("Invalid expense name. Use only letters and numbers (A-Z, a-z, 0-9).");
+        alert("Invalid expense name. Name cannot be empty.");
         return;
     }
     expenseData = currentState.expenses;
@@ -494,15 +538,16 @@ function settleExpenses(expenses, people) {
 // Event Listeners
 document.getElementById('addRow').addEventListener('click', addRow);
 document.getElementById('addPerson').addEventListener('click', () => {
-    const personName = prompt("Enter the person's name (letters and numbers only):");
+    const personName = prompt("Enter the person's name:");
     if (personName) {
         const cleaned = personName.trim();
-        if (!isValidAlphaNumericName(cleaned)) {
-            alert("Invalid person name. Use only letters and numbers (A-Z, a-z, 0-9).");
+        if (!isValidName(cleaned)) {
+            alert("Invalid person name. Name cannot be empty.");
             return;
         }
         people.push(cleaned);
         addPerson(cleaned);
+        updateActionButtonsState();
     }
 })
 document.getElementById('done').addEventListener('click', gatherData);
@@ -518,3 +563,4 @@ people.forEach(person => {
 expenseData.forEach(rowData => addRow(rowData));
 
 initializeThemeToggle();
+updateActionButtonsState();

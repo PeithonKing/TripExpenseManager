@@ -247,6 +247,11 @@ select:focus-visible {
     font: inherit;
 }
 
+#expenseTable input.input-invalid {
+    border-color: #c63d2f;
+    background: color-mix(in srgb, #c63d2f 10%, var(--surface));
+}
+
 .action-row {
     display: flex;
     flex-wrap: wrap;
@@ -294,9 +299,12 @@ select:focus-visible {
 }
 
 .rowdelete {
-    padding: 0.45rem 0.7rem;
+    width: 2.1rem;
+    height: 2.1rem;
+    padding: 0;
     border-radius: 7px;
     font-size: 0.78rem;
+    justify-content: center;
 }
 
 .results-grid {
