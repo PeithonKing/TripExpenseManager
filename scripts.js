@@ -1,10 +1,51 @@
-// Global Variables
-let people = getData('people') || [];
-let expenseData = getData('expenses') || [];
+const THEME_STORAGE_KEY = "themeMode";
+const THEME_MODES = ["system", "light", "dark"];
+const SHARE_PEOPLE_PARAM = "p";
+const SHARE_DATA_PARAM = "d";
+const NAME_PATTERN = /^[A-Za-z0-9]+$/;
+const PEOPLE_DELIMITER = "~";
+const ROW_DELIMITER = "~";
+const FIELD_DELIMITER = "_";
 
-console.log(people);
-console.log(expenseData);
+function getSavedThemeMode() {
+    const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+    return THEME_MODES.includes(savedTheme) ? savedTheme : "system";
+}
 
+function applyThemeMode(themeMode) {
+    if (themeMode === "system") {
+        document.documentElement.removeAttribute("data-theme");
+    } else {
+        document.documentElement.setAttribute("data-theme", themeMode);
+    }
+}
+
+function updateThemeToggleUI(themeMode) {
+    const themeOptions = document.querySelectorAll(".theme-option");
+    themeOptions.forEach(option => {
+        option.classList.toggle("active", option.dataset.themeMode === themeMode);
+    });
+}
+
+function initializeThemeToggle() {
+    const themeOptions = document.querySelectorAll(".theme-option");
+    if (!themeOptions.length) return;
+
+    const currentThemeMode = getSavedThemeMode();
+    applyThemeMode(currentThemeMode);
+    updateThemeToggleUI(currentThemeMode);
+
+    themeOptions.forEach(option => {
+        option.addEventListener("click", () => {
+            const selectedMode = option.dataset.themeMode;
+            if (!THEME_MODES.includes(selectedMode)) return;
+
+            localStorage.setItem(THEME_STORAGE_KEY, selectedMode);
+            applyThemeMode(selectedMode);
+            updateThemeToggleUI(selectedMode);
+        });
+    });
+}
 
 // Function to save data
 function saveData(name, data) {
@@ -18,18 +59,191 @@ function saveData(name, data) {
     }
 }
 
+function isValidAlphaNumericName(value) {
+    return NAME_PATTERN.test(String(value || "").trim());
+}
+
+function validatePeopleList(peopleList) {
+    return peopleList.every(isValidAlphaNumericName);
+}
+
+function validateExpenseNames(expenses) {
+    return expenses.every(row => isValidAlphaNumericName(row.expenseName));
+}
+
+function parseStateFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const hasPeopleParam = params.has(SHARE_PEOPLE_PARAM);
+    const hasDataParam = params.has(SHARE_DATA_PARAM);
+    const peopleParam = params.get(SHARE_PEOPLE_PARAM) || "";
+    const dataParam = params.get(SHARE_DATA_PARAM) || "";
+
+    try {
+        if (!hasPeopleParam || !hasDataParam) return null;
+
+        const people = peopleParam
+            .split(PEOPLE_DELIMITER)
+            .map(name => String(name || "").trim())
+            .filter(Boolean);
+
+        if (!validatePeopleList(people)) {
+            throw new Error("Invalid people names in URL.");
+        }
+
+        const rows = dataParam.split(ROW_DELIMITER).filter(Boolean);
+        const expenses = rows.map(row => {
+            const parts = row.split(FIELD_DELIMITER);
+            if (parts.length < 3) {
+                throw new Error("Malformed row in d parameter.");
+            }
+
+            const expenseName = parts[0] || "";
+            const amountSpent = Number(parts[1]) || 0;
+            const spenderIndex = Number(parts[2]);
+            const spentBy = people[spenderIndex] || "";
+
+            const contributions = parts.slice(3).map(token => Number(token) || 0);
+            const normalizedContributions = contributions.length < people.length
+                ? contributions.concat(new Array(people.length - contributions.length).fill(0))
+                : contributions.slice(0, people.length);
+
+            return {
+                expenseName,
+                amountSpent,
+                spentBy,
+                contributions: normalizedContributions
+            };
+        });
+
+        if (!validateExpenseNames(expenses)) {
+            throw new Error("Invalid expense names in URL.");
+        }
+
+        return { people, expenses };
+    } catch (error) {
+        console.warn("Invalid URL state. Falling back to local storage.", error);
+    }
+
+    return null;
+}
+
+function serializeStateForUrl(state) {
+    const people = state.people.map(name => String(name || "")).join(PEOPLE_DELIMITER);
+
+    const rows = state.expenses.map(row => {
+        const spenderIndex = Math.max(0, state.people.indexOf(row.spentBy));
+        const contributions = (Array.isArray(row.contributions) ? row.contributions : [])
+            .slice(0, state.people.length)
+            .concat(new Array(Math.max(0, state.people.length - (row.contributions || []).length)).fill(0));
+
+        const tokens = [
+            String(row.expenseName || ""),
+            String(Number(row.amountSpent) || 0),
+            String(spenderIndex),
+            ...contributions.map(value => String(Number(value) || 0))
+        ];
+
+        return tokens.join(FIELD_DELIMITER);
+    }).join(ROW_DELIMITER);
+
+    return { people, rows };
+}
+
+function loadInitialState() {
+    const urlState = parseStateFromUrl();
+    if (urlState) {
+        saveData("people", urlState.people);
+        saveData("expenses", urlState.expenses);
+        return urlState;
+    }
+    const storedState = {
+        people: getData("people") || [],
+        expenses: getData("expenses") || []
+    };
+
+    if (!validatePeopleList(storedState.people) || !validateExpenseNames(storedState.expenses)) {
+        alert("Saved data contains invalid names. Only A-Z, a-z, 0-9 are allowed. Clearing saved state.");
+        localStorage.removeItem("people");
+        localStorage.removeItem("expenses");
+        return { people: [], expenses: [] };
+    }
+
+    return storedState;
+}
+
+function collectTableStateFromDOM() {
+    const rows = document.querySelectorAll('#expenseBody tr');
+    const currentExpenses = [];
+
+    rows.forEach(row => {
+        const expenseName = row.querySelector('td:nth-child(1) input').value;
+        const amountSpent = parseFloat(row.querySelector('td:nth-child(2) input').value);
+        const spentBy = row.querySelector('td:nth-child(3) select').value;
+
+        const contributions = [];
+        row.querySelectorAll('td:nth-child(n+4) input').forEach(input => {
+            contributions.push(parseFloat(input.value) || 0);
+        });
+
+        currentExpenses.push({
+            expenseName,
+            amountSpent: Number.isFinite(amountSpent) ? amountSpent : 0,
+            spentBy,
+            contributions
+        });
+    });
+
+    return {
+        people: [...people],
+        expenses: currentExpenses
+    };
+}
+
+function createShareableUrl() {
+    const state = collectTableStateFromDOM();
+    if (!validatePeopleList(state.people)) {
+        throw new Error("Invalid person name. Use only letters and numbers.");
+    }
+    if (!validateExpenseNames(state.expenses)) {
+        throw new Error("Invalid expense name. Use only letters and numbers.");
+    }
+
+    const serialized = serializeStateForUrl(state);
+    const baseUrl = `${window.location.origin}${window.location.pathname}`;
+    return `${baseUrl}?${SHARE_PEOPLE_PARAM}=${serialized.people}&${SHARE_DATA_PARAM}=${serialized.rows}`;
+}
+
+async function shareCurrentState() {
+    try {
+        const shareUrl = createShareableUrl();
+        await navigator.clipboard.writeText(shareUrl);
+        alert("Share link copied to clipboard.");
+    } catch (error) {
+        alert(error.message || "Could not generate share link.");
+    }
+}
+
+// Global Variables
+const initialState = loadInitialState();
+let people = initialState.people;
+let expenseData = initialState.expenses;
+
+console.log(people);
+console.log(expenseData);
+
 // Function to retrieve data
 function getData(name) {
+    let serializedData;
     try {
-        const serializedData = localStorage.getItem(name);
+        serializedData = localStorage.getItem(name);
         if (serializedData === null) {
             return null; // Indicates no data found
         }
-        return JSON.parse(serializedData);
     } catch (error) {
         console.error('Error retrieving data:', error);
         return null; // Indicates failed retrieval
     }
+    return JSON.parse(serializedData);
 }
 
 
@@ -143,26 +357,12 @@ function addPerson(personName) {
 
 // Function to gather and log data
 function gatherData() {
-    const rows = document.querySelectorAll('#expenseBody tr');
-    expenseData = [];
-
-    rows.forEach(row => {
-        const expenseName = row.querySelector('td:nth-child(1) input').value;
-        const amountSpent = parseFloat(row.querySelector('td:nth-child(2) input').value);
-        const spentBy = row.querySelector('td:nth-child(3) select').value;
-
-        const contributions = [];
-        row.querySelectorAll('td:nth-child(n+4) input').forEach(input => {
-            contributions.push(parseFloat(input.value) || 0);
-        });
-
-        expenseData.push({
-            expenseName,
-            amountSpent,
-            spentBy,
-            contributions
-        });
-    });
+    const currentState = collectTableStateFromDOM();
+    if (!validateExpenseNames(currentState.expenses)) {
+        alert("Invalid expense name. Use only letters and numbers (A-Z, a-z, 0-9).");
+        return;
+    }
+    expenseData = currentState.expenses;
 
     console.log(expenseData);
 
@@ -259,8 +459,8 @@ function settleExpenses(expenses, people) {
     const output_field = document.getElementById('payments');
     output_field.innerHTML = '';
     output_field.style.display = 'block';
-    output_field.innerHTML += '<h2>Payments to be made</h2>';
-    output_field.innerHTML += `<p>All the necessary payments can be made with ${payments.length} transactions.</p>`;
+    output_field.innerHTML += '<h2>Payments to be Made:</h2>';
+    output_field.innerHTML += `<p>All the transactions can be settled with ${payments.length} transactions.</p>`;
     const ul1 = document.createElement('ul');
     payments.forEach(payment => {
         const li1 = document.createElement('li');
@@ -277,12 +477,13 @@ function settleExpenses(expenses, people) {
         costs[element.spentBy] += element.amountSpent;
     });
     const h2 = document.createElement('h2');
-    h2.textContent = 'Individual Costs';
+    h2.textContent = 'Individual Expenses:';
     individual_costs.appendChild(h2);
+    individual_costs.innerHTML += `<p>These are the total spent by each person.</p>`;
     const ul2 = document.createElement('ul');
     for (let person in costs) {
         const li2 = document.createElement('li');
-        li2.textContent = `${person} spent a total of ${costs[person]} rupees in this trip.`;
+        li2.textContent = `${person} spent ${costs[person]}.`;
         ul2.appendChild(li2);
     }
     individual_costs.appendChild(ul2);
@@ -293,13 +494,19 @@ function settleExpenses(expenses, people) {
 // Event Listeners
 document.getElementById('addRow').addEventListener('click', addRow);
 document.getElementById('addPerson').addEventListener('click', () => {
-    const personName = prompt("Enter the person's name:");
+    const personName = prompt("Enter the person's name (letters and numbers only):");
     if (personName) {
-        people.push(personName);
-        addPerson(personName);
+        const cleaned = personName.trim();
+        if (!isValidAlphaNumericName(cleaned)) {
+            alert("Invalid person name. Use only letters and numbers (A-Z, a-z, 0-9).");
+            return;
+        }
+        people.push(cleaned);
+        addPerson(cleaned);
     }
 })
 document.getElementById('done').addEventListener('click', gatherData);
+document.getElementById('shareState').addEventListener('click', shareCurrentState);
 
 
 
@@ -310,3 +517,4 @@ people.forEach(person => {
 
 expenseData.forEach(rowData => addRow(rowData));
 
+initializeThemeToggle();
